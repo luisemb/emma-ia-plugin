@@ -24,6 +24,16 @@ class Emma_IA_API
             wp_send_json_error('Datos incompletos.');
         }
 
+        // Security: Max character limit (e.g. 500 characters)
+        if (mb_strlen($message, 'UTF-8') > 500) {
+            wp_send_json_error('El mensaje es demasiado largo. Máximo 500 caracteres admitidos.');
+        }
+
+        // Security: Rate Limiting based on IP
+        if ($this->is_rate_limited()) {
+            wp_send_json_error('Has enviado demasiados mensajes muy rápido. Por favor, espera un minuto o más antes de continuar.');
+        }
+
         $api_key = get_option('emma_ia_openai_api_key');
         $assistant_id = get_option('emma_ia_assistant_id');
 
@@ -58,6 +68,42 @@ class Emma_IA_API
         wp_send_json_success(array(
             'reply' => $reply,
         ));
+    }
+
+    private function is_rate_limited()
+    {
+        // Limit to 10 requests per minute per IP
+        $ip_address = $this->get_client_ip();
+        $transient_key = 'emma_rate_' . md5($ip_address);
+
+        $requests = get_transient($transient_key);
+
+        if (false === $requests) {
+            set_transient($transient_key, 1, MINUTE_IN_SECONDS);
+            return false; // Not limited
+        }
+
+        if ($requests >= 10) {
+            return true; // Limited
+        }
+
+        set_transient($transient_key, $requests + 1, MINUTE_IN_SECONDS);
+        return false;
+    }
+
+    private function get_client_ip()
+    {
+        $ip = '';
+        if (isset($_SERVER['HTTP_CLIENT_IP'])) {
+            $ip = sanitize_text_field(wp_unslash($_SERVER['HTTP_CLIENT_IP']));
+        }
+        elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ip = sanitize_text_field(wp_unslash($_SERVER['HTTP_X_FORWARDED_FOR']));
+        }
+        elseif (isset($_SERVER['REMOTE_ADDR'])) {
+            $ip = sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR']));
+        }
+        return $ip;
     }
 
     private function get_or_create_conversation($session_id)
