@@ -34,8 +34,11 @@ class Emma_IA_API
             wp_send_json_error('Has enviado demasiados mensajes muy rápido. Por favor, espera un minuto o más antes de continuar.');
         }
 
+        $is_logged_in = is_user_logged_in();
         $api_key = get_option('emma_ia_openai_api_key');
+
         $assistant_id = get_option('emma_ia_assistant_id');
+        $system_prompt = get_option('emma_ia_system_prompt');
 
         if (empty($api_key)) {
             wp_send_json_error('La API Key de OpenAI no está configurada.');
@@ -49,10 +52,10 @@ class Emma_IA_API
         // If not, use standard Chat Completions for generic fallback.
         $reply = '';
         if (!empty($assistant_id)) {
-            $reply = $this->call_openai_assistant($api_key, $assistant_id, $message, $session_id);
+            $reply = $this->call_openai_assistant($api_key, $assistant_id, $message, $session_id, $is_logged_in);
         }
         else {
-            $reply = $this->call_openai_chat($api_key, $message);
+            $reply = $this->call_openai_chat($api_key, $message, $system_prompt, $is_logged_in);
         }
 
         if (is_wp_error($reply)) {
@@ -143,16 +146,23 @@ class Emma_IA_API
         );
     }
 
-    private function call_openai_chat($api_key, $message)
+    private function call_openai_chat($api_key, $message, $system_prompt = '', $is_logged_in = false)
     {
         // Fallback simple chat completion
         $url = 'https://api.openai.com/v1/chat/completions';
         $bot_name = get_option('emma_ia_bot_name', 'Emma');
 
+        // Check if there is a custom prompt, otherwise use a generic one
+        $default_prompt = "Eres un asistente virtual llamado $bot_name, muy útil y amable.";
+        $final_prompt = !empty($system_prompt) ? $system_prompt : $default_prompt;
+
+        $auth_context = $is_logged_in ? "El usuario actual con el que hablas ESTÁ logueado/autenticado en el sistema." : "El usuario actual NO está logueado en el sistema (es un visitante anónimo).";
+        $final_prompt .= "\n\n[CONTEXTO DEL SISTEMA: " . $auth_context . "]";
+
         $body = array(
             'model' => 'gpt-3.5-turbo',
             'messages' => array(
-                    array('role' => 'system', 'content' => "Eres un asistente virtual llamado $bot_name, muy útil y amable."),
+                    array('role' => 'system', 'content' => $final_prompt),
                     array('role' => 'user', 'content' => $message)
             )
         );
@@ -180,7 +190,7 @@ class Emma_IA_API
         return new WP_Error('api_error', 'Invalid response from AI');
     }
 
-    private function call_openai_assistant($api_key, $assistant_id, $message, $session_id)
+    private function call_openai_assistant($api_key, $assistant_id, $message, $session_id, $is_logged_in = false)
     {
         // Simplified implementation of Assistants API
         // Real implementation requires Thread creation, Message addition, Run execution, and polling logic.
@@ -221,13 +231,17 @@ class Emma_IA_API
         ));
 
         // 3. Create Run
+        $auth_context = $is_logged_in ? "El usuario actual ESTÁ logueado/autenticado en el sistema." : "El usuario actual NO está logueado en el sistema (es un visitante anónimo).";
         $run_response = wp_remote_post("https://api.openai.com/v1/threads/$thread_id/runs", array(
             'headers' => array(
                 'Authorization' => 'Bearer ' . $api_key,
                 'Content-Type' => 'application/json',
                 'OpenAI-Beta' => 'assistants=v2'
             ),
-            'body' => wp_json_encode(array('assistant_id' => $assistant_id))
+            'body' => wp_json_encode(array(
+                'assistant_id' => $assistant_id,
+                'additional_instructions' => "[CONTEXTO DEL SISTEMA: " . $auth_context . "]"
+            ))
         ));
 
         if (is_wp_error($run_response))

@@ -59,6 +59,7 @@ class Emma_IA_Admin
     {
         register_setting('emma_ia_settings_group', 'emma_ia_openai_api_key');
         register_setting('emma_ia_settings_group', 'emma_ia_assistant_id');
+        register_setting('emma_ia_settings_group', 'emma_ia_system_prompt');
         register_setting('emma_ia_settings_group', 'emma_ia_bot_name', array('default' => 'Emma'));
         register_setting('emma_ia_settings_group', 'emma_ia_bot_avatar');
     }
@@ -68,7 +69,8 @@ class Emma_IA_Admin
         include EMMA_IA_PLUGIN_DIR . 'admin/views/settings.php';
     }
 
-    	public function render_dashboard_page() {
-		include EMMA_IA_PLUGIN_DIR . 'admin/views/dashboard.php';
-	}
+    public function render_dashboard_page()
+    {
+        include EMMA_IA_PLUGIN_DIR . 'admin/views/dashboard.php';
+    }
 }

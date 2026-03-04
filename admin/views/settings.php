@@ -17,8 +17,7 @@
                 </th>
                 <td>
                     <input type="password" name="emma_ia_openai_api_key"
-                        value="<?php echo esc_attr(get_option('emma_ia_openai_api_key')); ?>"
-                        class="regular-text" />
+                        value="<?php echo esc_attr(get_option('emma_ia_openai_api_key')); ?>" class="regular-text" />
                     <p class="description">
                         <?php esc_html_e('Tu API Key secreta de OpenAI.', 'emma-ia'); ?>
                     </p>
@@ -40,12 +39,24 @@
 
             <tr valign="top">
                 <th scope="row">
+                    <?php esc_html_e('Prompt de Sistema', 'emma-ia'); ?>
+                </th>
+                <td>
+                    <textarea name="emma_ia_system_prompt" rows="4"
+                        class="large-text"><?php echo esc_textarea(get_option('emma_ia_system_prompt')); ?></textarea>
+                    <p class="description">
+                        <?php esc_html_e('El prompt de sistema usado como fallback si el Assistant ID no está configurado.', 'emma-ia'); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr valign="top">
+                <th scope="row">
                     <?php esc_html_e('Nombre del Bot', 'emma-ia'); ?>
                 </th>
                 <td>
                     <input type="text" name="emma_ia_bot_name"
-                        value="<?php echo esc_attr(get_option('emma_ia_bot_name', 'Emma')); ?>"
-                        class="regular-text" />
+                        value="<?php echo esc_attr(get_option('emma_ia_bot_name', 'Emma')); ?>" class="regular-text" />
                 </td>
             </tr>
 
