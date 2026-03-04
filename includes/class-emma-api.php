@@ -44,6 +44,12 @@ class Emma_IA_API
             wp_send_json_error('La API Key de OpenAI no está configurada.');
         }
 
+        // Security: Daily Quota Limit
+        $quota_check = $this->check_daily_quota($is_logged_in);
+        if (is_wp_error($quota_check)) {
+            wp_send_json_error($quota_check->get_error_message());
+        }
+
         // 1. Save User Message and get/create conversation ID
         $conversation_id = $this->get_or_create_conversation($session_id);
         $this->save_message($conversation_id, 'user', $message);
@@ -92,6 +98,34 @@ class Emma_IA_API
 
         set_transient($transient_key, $requests + 1, MINUTE_IN_SECONDS);
         return false;
+    }
+
+    private function check_daily_quota($is_logged_in)
+    {
+        if ($is_logged_in) {
+            $user_id = get_current_user_id();
+            $transient_key = 'emma_quota_user_' . $user_id;
+            $limit = (int)get_option('emma_ia_user_daily_quota', 100);
+        }
+        else {
+            $ip_address = $this->get_client_ip();
+            $transient_key = 'emma_quota_ip_' . md5($ip_address);
+            $limit = (int)get_option('emma_ia_visitor_daily_quota', 20);
+        }
+
+        $requests_today = get_transient($transient_key);
+
+        if (false === $requests_today) {
+            set_transient($transient_key, 1, DAY_IN_SECONDS);
+            return true;
+        }
+
+        if ((int)$requests_today >= $limit) {
+            return new WP_Error('quota_exceeded', 'Has alcanzado tu límite de mensajes por hoy. Vuelve mañana.');
+        }
+
+        set_transient($transient_key, (int)$requests_today + 1, DAY_IN_SECONDS);
+        return true;
     }
 
     private function get_client_ip()

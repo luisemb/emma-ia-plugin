@@ -73,6 +73,34 @@
                 </td>
             </tr>
 
+            <tr valign="top">
+                <th scope="row">
+                    <?php esc_html_e('Límite Diario (Visitantes)', 'emma-ia'); ?>
+                </th>
+                <td>
+                    <input type="number" name="emma_ia_visitor_daily_quota"
+                        value="<?php echo esc_attr(get_option('emma_ia_visitor_daily_quota', 20)); ?>"
+                        class="small-text" />
+                    <p class="description">
+                        <?php esc_html_e('Número máximo de mensajes por día para usuarios NO logueados (basado en IP).', 'emma-ia'); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr valign="top">
+                <th scope="row">
+                    <?php esc_html_e('Límite Diario (Usuarios Logueados)', 'emma-ia'); ?>
+                </th>
+                <td>
+                    <input type="number" name="emma_ia_user_daily_quota"
+                        value="<?php echo esc_attr(get_option('emma_ia_user_daily_quota', 100)); ?>"
+                        class="small-text" />
+                    <p class="description">
+                        <?php esc_html_e('Número máximo de mensajes por día para usuarios logueados.', 'emma-ia'); ?>
+                    </p>
+                </td>
+            </tr>
+
         </table>
 
         <?php submit_button(); ?>
