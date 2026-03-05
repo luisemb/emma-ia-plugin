@@ -295,7 +295,7 @@ class Emma_IA_API
             $check_response = wp_remote_get("https://api.openai.com/v1/threads/$thread_id/runs/$run_id", array(
                 'headers' => array(
                     'Authorization' => 'Bearer ' . $api_key,
-                    'OpenAI-Beta' => 'assistants=v2'
+                    'OpenAI-Beta'     => 'assistants=v2'
                 )
             ));
 
@@ -303,8 +303,45 @@ class Emma_IA_API
 
             if ($check_data['status'] === 'completed') {
                 break;
-            }
-            elseif (in_array($check_data['status'], array('failed', 'cancelled', 'expired'))) {
+            } elseif ($check_data['status'] === 'requires_action') {
+                // The assistant wants to call a function (e.g. search LearnDash)
+                $tool_calls = $check_data['required_action']['submit_tool_outputs']['tool_calls'] ?? array();
+                $tool_outputs = array();
+
+                foreach ($tool_calls as $tool_call) {
+                    if ($tool_call['type'] === 'function') {
+                        $function_name = $tool_call['function']['name'];
+                        $arguments = json_decode($tool_call['function']['arguments'], true);
+
+                        if ($function_name === 'buscar_en_learndash') {
+                            $query = $arguments['query'] ?? '';
+                            // Execute local search
+                            $search_results = $this->search_learndash_content($query);
+                            
+                            $tool_outputs[] = array(
+                                'tool_call_id' => $tool_call['id'],
+                                'output'       => wp_json_encode($search_results)
+                            );
+                        } else {
+                            // If it's another function we don't recognize
+                            $tool_outputs[] = array(
+                                'tool_call_id' => $tool_call['id'],
+                                'output'       => wp_json_encode(array('error' => 'Función no implementada.'))
+                            );
+                        }
+                    }
+                }
+
+                if (!empty($tool_outputs)) {
+                    // Submit tools back to OpenAI
+                    $submit_response = $this->submit_tool_outputs($api_key, $thread_id, $run_id, $tool_outputs);
+                    if (is_wp_error($submit_response)) {
+                        return $submit_response;
+                    }
+                    // Wait 2 sec before next poll iteration to allow OpenAI processing
+                    sleep(2);
+                }
+            } elseif (in_array($check_data['status'], array('failed', 'cancelled', 'expired'))) {
                 return new WP_Error('run_failed', 'El run del asistente falló con estado: ' . $check_data['status']);
             }
             $attempts++;
@@ -324,6 +361,68 @@ class Emma_IA_API
         }
 
         return new WP_Error('retrieve_error', 'No se pudo leer la respuesta final.');
+    }
+
+    private function submit_tool_outputs($api_key, $thread_id, $run_id, $tool_outputs)
+    {
+        $url = "https://api.openai.com/v1/threads/$thread_id/runs/$run_id/submit_tool_outputs";
+        $body = array(
+            'tool_outputs' => $tool_outputs
+        );
+
+        $response = wp_remote_post($url, array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+                'OpenAI-Beta'   => 'assistants=v2'
+            ),
+            'body'    => wp_json_encode($body),
+            'timeout' => 15,
+        ));
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        return true;
+    }
+
+    private function search_learndash_content($keyword)
+    {
+        if (empty($keyword)) {
+            return array('error' => 'No se proporcionó una palabra clave para buscar.');
+        }
+
+        // Post types for LearnDash: Courses, Lessons, Topics
+        $post_types = array('sfwd-courses', 'sfwd-lessons', 'sfwd-topic');
+        
+        $args = array(
+            'post_type'      => $post_types,
+            'post_status'    => 'publish',
+            's'              => $keyword,
+            'posts_per_page' => 5, // Limit to top 5 results to save tokens
+            'orderby'        => 'relevance'
+        );
+
+        $query = new WP_Query($args);
+        $results = array();
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $results[] = array(
+                    'titulo'  => get_the_title(),
+                    'url'     => get_permalink(),
+                    'tipo'    => get_post_type(),
+                    'resumen' => wp_trim_words(get_the_content(), 30, '...')
+                );
+            }
+            wp_reset_postdata();
+        } else {
+            return array('mensaje' => 'No se encontró ningún contenido relacionado a la búsqueda en los cursos.');
+        }
+
+        return $results;
     }
 
     private function maybe_summarize_conversation($conversation_id, $session_id)

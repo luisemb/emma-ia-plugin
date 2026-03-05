@@ -101,6 +101,19 @@
                 </td>
             </tr>
 
+            <tr valign="top">
+                <th scope="row">
+                    <?php esc_html_e('Habilitar Búsqueda en LearnDash', 'emma-ia'); ?>
+                </th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="emma_ia_enable_learndash_search" value="1"
+                            <?php checked(1, get_option('emma_ia_enable_learndash_search'), true); ?> />
+                        <?php esc_html_e('Permitir que la Inteligencia Artificial busque contenido de cursos (LearnDash) cuando el usuario pregunte por ello.', 'emma-ia'); ?>
+                    </label>
+                </td>
+            </tr>
+
         </table>
 
         <?php submit_button(); ?>

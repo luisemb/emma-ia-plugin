@@ -64,6 +64,7 @@ class Emma_IA_Admin
         register_setting('emma_ia_settings_group', 'emma_ia_bot_avatar');
         register_setting('emma_ia_settings_group', 'emma_ia_visitor_daily_quota', array('default' => 20));
         register_setting('emma_ia_settings_group', 'emma_ia_user_daily_quota', array('default' => 100));
+        register_setting('emma_ia_settings_group', 'emma_ia_enable_learndash_search', array('default' => ''));
     }
 
     public function render_settings_page()
